@@ -2,6 +2,7 @@
 
 # =====================
 # Script for install nagios core 
+# Version 1.0
 #
 # dorancemc@gmail.com - 06 sep 2014
 #
