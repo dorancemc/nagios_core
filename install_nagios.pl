@@ -5,10 +5,24 @@
 # Version 1.0
 #
 # dorancemc@gmail.com - 06 sep 2014
-#
-# requiere: perl and recent OS installed.
-# Previously execute: 
-# aptitude install -y make gcc && perl -MCPAN -e 'install Net::Address::IP::Local' && perl -MCPAN -e 'install DBI' && chmod 755 install_nagios.pl && ./install_nagios.pl
+
+# This script install :
+# - NagiosCore v4.0.8
+# - NagiosPlugins v2.0.3
+# - NRPE v2.15
+# - PnP4Nagios v0.6.24
+# - NDOUtils v2
+# - NConf v1.3.0
+# 
+# This script will install Nagios in Debian Wheezy 
+# 
+# In Debian wheezy: 
+# 1.- Basic installation
+# 2.- Previously you need execute:
+# # aptitude install -y make gcc && perl -MCPAN -e 'install Net::Address::IP::Local' && perl -MCPAN -e 'install DBI' 
+# 3.- Execute
+# # chmod 755 install_nagios.pl && ./install_nagios.pl
+# 
 #
 # tested in:
 # Debian 7.6
