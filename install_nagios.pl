@@ -2,9 +2,9 @@
 
 # =====================
 # Script for install nagios core 
-# Version 1.0
+# Version 1.1
 #
-# dorancemc@gmail.com - 06 sep 2014
+# dorancemc@gmail.com - 28 oct 2014
 
 # This script install :
 # - NagiosCore v4.0.8
@@ -25,7 +25,7 @@
 # 
 #
 # tested in:
-# Debian 7.6
+# Debian 7.7
 #
 # tested with:
 # nagios core 4.0.8
@@ -59,11 +59,11 @@ my $nrpe_url="http://downloads.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.15
 my $pnp4nagios_url="http://downloads.sourceforge.net/project/pnp4nagios/PNP-0.6/pnp4nagios-0.6.24.tar.gz"; 
 my $mklivestatus_url="http://mathias-kettner.de/download/mk-livestatus-1.2.4p5.tar.gz";
 my $nagvis_url="http://downloads.sourceforge.net/project/nagvis/NagVis%201.7/nagvis-1.7.10.tar.gz";
-my $nsca_url="http://downloads.sourceforge.net/project/nagios/nsca-2.x/nsca-2.9.1/nsca-2.9.1.tar.gz";
+my $nsca_url="http://downloads.sourceforge.net/project/nagios/nsca-2.x/nsca-2.7.2/nsca-2.7.2.tar.gz";
 my $ndou_url="http://downloads.sourceforge.net/project/nagios/ndoutils-2.x/ndoutils-2.0.0/ndoutils-2.0.0.tar.gz";
 my $nconf_url="http://downloads.sourceforge.net/project/nconf/nconf/1.3.0-0/nconf-1.3.0-0.tgz";
 ############
-my $mysql_root_passwd="r007!";
+my $mysql_root_passwd="p4ssw0rD";
 my $mysql_root="root";
 my $mysql_host="localhost";
 my $mysql_db_ndou="ndoutil";
@@ -105,8 +105,8 @@ sub debian {
     $cmd = "echo mysql-server-5.5 mysql-server/root_password_again password $mysql_root_passwd | debconf-set-selections";
     system ($cmd);
     system ("aptitude install -y ntp vim gcc make fping graphviz php5 apache2 php5-snmp php5-gd php5-mysql php5-ldap php5-sqlite tcpdump iptraf gvim libapache2-mod-auth-ntlm-winbind libfontconfig-dev vim-gtk libgd2-xpm-dev libltdl-dev libssl-dev mysql-server sudo rsync gawk g++ libclass-csv-perl libmysqlclient-dev") == 0 or die "can't install packages";
-    system ("aptitude install -y rrdtool librrds-perl libmcrypt-dev whois nslookup dnsutils sendmail") == 0 or die "can't install packages";
-    system ("aptitude install -y sysstat snmpd snmp nmap iptraf tcpdump") == 0 or die "can't install packages";
+    system ("aptitude install -y rrdtool librrds-perl libmcrypt-dev whois nslookup dnsutils exim4") == 0 or die "can't install packages";
+    system ("aptitude install -y sysstat snmpd snmp nmap iptraf tcpdump curl") == 0 or die "can't install packages";
     my $user_apache = "www-data";
     system("echo $hostname > /etc/hostname");
     system("echo rocommunity nagios 127.0.0.1 >> /etc/snmp/snmpd.conf ");
@@ -392,9 +392,11 @@ sub installnconf {
     system("echo 'cfg_dir=$install_path/etc/global' >>$install_path/etc/nagios.cfg");
     system("chown -R $user_apache: $install_nconf/ $install_path/etc/server $install_path/etc/global");
     &mysql_nconf_exec();
+    system("chown -R $user_apache: $install_nconf/ $install_path/etc/server $install_path/etc/global");
+    system("/usr/bin/curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/nconf_base.sql >$install_tmp_path/nconf_base.sql");
+    system("mysql -u $mysql_db_nconf -p$mysql_pass_nconf $mysql_db_nconf <$install_tmp_path/nconf_base.sql");
     &services("apache2", "restart");
     return $?;
-
 }
 
 sub create_htpasswd {
@@ -471,6 +473,7 @@ sub mysql_nconf_exec {
 }
 
 sub isdone {
+    print " =============== \n";
     print " Install finish! \n";
     print " Access to http://$address/nagios with credentials nagiosadmin/$nagiosadmin_passwd \n";
     print " pnp4nagios http://$address/pnp4nagios \n";
