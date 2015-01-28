@@ -107,7 +107,7 @@ sub debian {
     $cmd = "echo mysql-server-5.5 mysql-server/root_password_again password $mysql_root_passwd | debconf-set-selections";
     system ($cmd);
     system ("aptitude install -y ntp vim gcc make fping graphviz php5 apache2 php5-snmp php5-gd php5-mysql php5-ldap php5-sqlite tcpdump iptraf gvim libapache2-mod-auth-ntlm-winbind libfontconfig-dev vim-gtk libgd2-xpm-dev libltdl-dev libssl-dev mysql-server sudo rsync gawk g++ libclass-csv-perl libmysqlclient-dev") == 0 or die "can't install packages";
-    system ("aptitude install -y rrdtool librrds-perl libmcrypt-dev whois nslookup dnsutils exim4") == 0 or die "can't install packages";
+    system ("aptitude install -y dos2unix rrdtool librrds-perl libmcrypt-dev whois nslookup dnsutils exim4") == 0 or die "can't install packages";
     system ("aptitude install -y sysstat snmpd snmp nmap iptraf tcpdump curl") == 0 or die "can't install packages";
     my $user_apache = "www-data";
     system("echo $hostname > /etc/hostname");
@@ -196,7 +196,13 @@ sub installnrpe {
     system("echo include_dir=$install_path/etc/nrpe/ >>$install_path/etc/nrpe.cfg");
     mkdir("$install_path/etc/nrpe");
     system("/usr/bin/curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/check.cfg >$install_path/etc/nrpe/check.cfg");
+    mkdir("$install_path/libexec/other");
+    system("/usr/bin/curl -k 'http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=910&cf_id=24' >$install_path/libexec/other/check_cpu.sh");
+    system("chmod 755 $install_path/libexec/other/check_cpu.sh");
+    system("/usr/bin/curl -k 'http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=4174&cf_id=24' >$install_path/libexec/other/check_mem.sh");
+    system("chmod 755 $install_path/libexec/other/check_mem.sh");
     &add_service_startup("nrpe");
+    &services("nrpe", "start");
     return $?;
 }
 
