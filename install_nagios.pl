@@ -195,6 +195,7 @@ sub installnrpe {
     &fr_in_file2("$install_path/etc/nrpe.cfg","dont_blame_nrpe=0","dont_blame_nrpe=1");
     system("echo include_dir=$install_path/etc/nrpe/ >>$install_path/etc/nrpe.cfg");
     mkdir("$install_path/etc/nrpe");
+    system("/usr/bin/curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/check.cfg >$install_path/etc/nrpe/check.cfg");
     &add_service_startup("nrpe");
     return $?;
 }
