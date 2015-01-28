@@ -2,9 +2,9 @@
 
 # =====================
 # Script for install nagios core 
-# Version 1.1
+# Version 1.2
 #
-# dorancemc@gmail.com - 28 oct 2014
+# dorancemc@gmail.com - 27 ene 2015
 
 # This script install :
 # - NagiosCore v4.0.8
@@ -19,9 +19,11 @@
 # In Debian wheezy: 
 # 1.- Basic installation
 # 2.- Previously you need execute:
-# # aptitude install -y make gcc && perl -MCPAN -e 'install Net::Address::IP::Local' && perl -MCPAN -e 'install DBI' 
+# aptitude install -y make gcc curl && perl -MCPAN -e 'install Net::Address::IP::Local' && perl -MCPAN -e 'install DBI'
 # 3.- Execute
-# # chmod 755 install_nagios.pl && ./install_nagios.pl
+# curl -k "http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=6129&cf_id=24" >install_nagios.pl
+# 4.- Execute
+# chmod 755 install_nagios.pl && ./install_nagios.pl
 # 
 #
 # tested in:
@@ -192,6 +194,7 @@ sub installnrpe {
     system("cp $_[0]/sample-config/nrpe.cfg $install_path/etc/");
     &fr_in_file2("$install_path/etc/nrpe.cfg","dont_blame_nrpe=0","dont_blame_nrpe=1");
     system("echo include_dir=$install_path/etc/nrpe/ >>$install_path/etc/nrpe.cfg");
+    mkdir("$install_path/etc/nrpe");
     &add_service_startup("nrpe");
     return $?;
 }
