@@ -201,7 +201,7 @@ sub installnrpe {
     system("chmod 755 $install_path/libexec/other/check_cpu.sh");
     system("/usr/bin/curl -k 'http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=4174&cf_id=24' >$install_path/libexec/other/check_mem.sh");
     system("chmod 755 $install_path/libexec/other/check_mem.sh");
-    &add_service_startup("nrpe");
+    # &add_service_startup("nrpe");
     &services("nrpe", "start");
     return $?;
 }
