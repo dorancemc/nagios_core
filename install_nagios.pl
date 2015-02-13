@@ -112,6 +112,7 @@ sub debian {
     my $user_apache = "www-data";
     system("echo $hostname > /etc/hostname");
     system("echo rocommunity nagios 127.0.0.1 >> /etc/snmp/snmpd.conf ");
+    system("ln -sf /usr/bin/mail /bin/mail ");
     &add_usrgrp_nagios($user_apache);
     &installnagios(&extract_software(&down_software($nagios_url)));
     &installplugins(&extract_software(&down_software($plugins_url)));
@@ -201,8 +202,8 @@ sub installnrpe {
     system("chmod 755 $install_path/libexec/other/check_cpu.sh");
     system("/usr/bin/curl -k 'http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=4174&cf_id=24' >$install_path/libexec/other/check_mem.sh");
     system("chmod 755 $install_path/libexec/other/check_mem.sh");
-    # &add_service_startup("nrpe");
-    &services("nrpe", "start");
+    &add_service_startup("nrpe");
+    # &services("nrpe", "start");
     return $?;
 }
 
