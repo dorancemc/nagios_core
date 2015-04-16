@@ -10,7 +10,7 @@
 # - NagiosCore v4.0.8
 # - NagiosPlugins v2.0.3
 # - NRPE v2.15
-# - PnP4Nagios v0.6.24
+# - PnP4Nagios v0.6.25
 # - NDOUtils v2
 # - NConf v1.3.0
 # 
