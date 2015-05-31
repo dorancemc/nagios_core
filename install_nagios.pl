@@ -21,7 +21,7 @@
 # 2.- Previously you need execute:
 # aptitude install -y make gcc curl && perl -MCPAN -e 'install Net::Address::IP::Local' && perl -MCPAN -e 'install DBI'
 # 3.- Execute
-# curl -k "http://exchange.nagios.org/components/com_mtree/attachment.php?link_id=6129&cf_id=24" >install_nagios.pl
+# curl -k "https://raw.githubusercontent.com/dorancemc/nagios_core/master/install_nagios.pl" >install_nagios.pl
 # 4.- Execute
 # chmod 755 install_nagios.pl && ./install_nagios.pl
 # 
