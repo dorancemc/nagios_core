@@ -13,6 +13,7 @@
 # - PnP4Nagios v0.6.25
 # - NDOUtils v2
 # - NConf v1.3.0
+# - NagVis v1.8.3
 # 
 # This script will install Nagios in Debian Wheezy 
 # 
@@ -60,7 +61,7 @@ my $plugins_url="http://nagios-plugins.org/download/nagios-plugins-2.0.3.tar.gz"
 my $nrpe_url="http://downloads.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.15/nrpe-2.15.tar.gz";
 my $pnp4nagios_url="http://downloads.sourceforge.net/project/pnp4nagios/PNP-0.6/pnp4nagios-0.6.25.tar.gz"; 
 my $mklivestatus_url="http://mathias-kettner.de/download/mk-livestatus-1.2.4p5.tar.gz";
-my $nagvis_url="http://downloads.sourceforge.net/project/nagvis/NagVis%201.7/nagvis-1.7.10.tar.gz";
+my $nagvis_url="http://www.nagvis.org/share/nagvis-1.8.3.tar.gz";
 my $nsca_url="http://downloads.sourceforge.net/project/nagios/nsca-2.x/nsca-2.7.2/nsca-2.7.2.tar.gz";
 my $ndou_url="http://downloads.sourceforge.net/project/nagios/ndoutils-2.x/ndoutils-2.0.0/ndoutils-2.0.0.tar.gz";
 my $nconf_url="http://downloads.sourceforge.net/project/nconf/nconf/1.3.0-0/nconf-1.3.0-0.tgz";
