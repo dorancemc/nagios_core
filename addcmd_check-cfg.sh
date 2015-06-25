@@ -11,8 +11,10 @@
 # 3. coloque un comentario en COMMENT
 # 4. indique la ruta en CHECK_CFG
 # 5. ejecute el comando 
-#    $ for i in `cat hosts.txt ` ; do ssh root@$i <addcmd_check-cfg.sh ; done
+#    $ for i in `cat hosts.txt ` ; do ssh nagios@$i <addcmd_check-cfg.sh ; done
 #
+#    si tienes problemas para reiniciar el servicio desde otro usuario, ejecutas:
+#    for i in `cat hosts.txt ` ; do ssh nagios@$i -t sudo /etc/init.d/nrpe restart ; done
 #
 # dorancemc@gmail.com - 24 jun 2015
 #
