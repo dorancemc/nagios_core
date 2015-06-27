@@ -1636,7 +1636,8 @@ sub getdata_localhost {
 	    chomp;
 	    verb("got line: $_");
 	    my @words = split;
-	    if (!$int_lines && scalar(@words)>2 && $words[1] eq 'Link') {
+	    # if (!$int_lines && scalar(@words)>2 && $words[1] eq 'Link') {
+	    if (!$int_lines && scalar(@words)>2 && $words[1] eq 'Link' && $words[0] ne 'lo') {
 		if (int_name_match($words[0])) {
 		    $interfaces[$num_int] = { 
 			  'descr' => $words[0], 'admin_up'=> $status{'DOWN'}, 'oper_up'=> $status{'DOWN'}, # considered common between SNMP and local checks
