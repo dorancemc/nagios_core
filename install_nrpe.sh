@@ -3,7 +3,7 @@
 # @dorancemc - 10-sep-2016
 #
 # Script para installar nrpe
-# Validado en : Debian 6+, Centos 6+
+# Validado en : Debian 6+, Ubuntu 16+, Centos 6+
 #
 #
 
@@ -34,6 +34,16 @@ command_exists () {
 
 debian() {
   if [ $version -ge 8 ]; then
+    INIT_TYPE="systemd"
+  else
+    INIT_TYPE="sysv"
+  fi
+  apt-get install -y git gcc libssl-dev libkrb5-dev make libmysqlclient-dev fping
+  installar_nrpe
+}
+
+ubuntu() {
+  if [ $version -ge 16 ]; then
     INIT_TYPE="systemd"
   else
     INIT_TYPE="sysv"
