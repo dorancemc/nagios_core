@@ -21,3 +21,8 @@ Validado en : Debian 6+, Ubuntu 16+, Centos 6+
 ```
 curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/install_nagiosplugins.sh | sh -x
 ```
+Si tiene problemas para instalar los complementos de Perl, ejecute lo siguiente:
+````
+wget http://search.cpan.org/CPAN/authors/id/N/NA/NAGIOS/Nagios-Monitoring-Plugin-0.51.tar.gz && tar -zxvf Nagios-Monitoring-Plugin-0.51.tar.gz && cd Nagios-Monitoring-Plugin-0.51 && perl Makefile.PL ; make ; make install 
+```
+
