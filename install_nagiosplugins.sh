@@ -37,7 +37,8 @@ rh() {
   if ! command_exists wget ; then
     yum install wget -y
   fi
-  yum install -y perl
+  yum install -y perl perl-CPAN
+  yes | cpan YAML
   installar_nplugins
 }
 
