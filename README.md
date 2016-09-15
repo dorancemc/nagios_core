@@ -10,4 +10,8 @@ Algunos scripts que encontrará aca:
 
 * Plugins de nagios
 
- 
+# Instalación cliente NRPE
+
+```
+curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/install_nrpe.sh | sh -x
+```
