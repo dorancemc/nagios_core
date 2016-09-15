@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# @dorancemc - 14-sep-2016
+# @dorancemc - 10-sep-2016
 #
 # Script para installar nrpe
-# Validado en : Debian 7+, Ubuntu 16+, Centos 6+
+# Validado en : Debian 6+, Centos 6+
 #
 #
 
@@ -18,9 +18,11 @@ linux_variant() {
     fi
     distro=$(lsb_release -s -i | tr '[:upper:]' '[:lower:]')
     flavour=$(lsb_release -s -c )
-    nversion=$(lsb_release -s -r | cut -d. -f1 )
+    version=$(lsb_release -s -r | cut -d. -f1 )
   elif [ -f "/etc/redhat-release" ]; then
     distro="rh"
+    flavour=$(cat /etc/redhat-release | cut -d" " -f1 | tr '[:upper:]' '[:lower:]' )
+    version=$(cat /etc/redhat-release | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1 )
   else
     distro="unknown"
   fi
@@ -31,7 +33,7 @@ command_exists () {
 }
 
 debian() {
-  if [ $nversion -ge 8 ]; then
+  if [ $version -ge 8 ]; then
     INIT_TYPE="systemd"
   else
     INIT_TYPE="sysv"
@@ -43,6 +45,11 @@ debian() {
 rh() {
   if ! command_exists wget ; then
     yum install wget -y
+  fi
+  if [ $version -ge 7 ]; then
+    INIT_TYPE="systemd"
+  else
+    INIT_TYPE="sysv"
   fi
   yum install -y git gcc make fping krb5-devel mysql-devel openssl-devel
   installar_nrpe
