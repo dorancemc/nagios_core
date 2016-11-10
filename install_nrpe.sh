@@ -1,41 +1,5 @@
 #!/bin/bash
 #
-# @dorancemc - 09-nov-2016
-#
-# Script para installar nrpe
-# Validado en : Debian 6+, Ubuntu 16+, Centos 6+
-#
-#
-
-NRPE_version="3.0.1"
-INSTALL_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
-NAGIOS_USER="nagios"
-
-linux_variant() {
-  if [ -f "/etc/debian_version" ]; then
-    if ! command_exists lsb_release ; then
-      apt-get install -y lsb-release
-    fi
-    distro=$(lsb_release -s -i | tr '[:upper:]' '[:lower:]')
-    flavour=$(lsb_release -s -c )
-    version=$(lsb_release -s -r | cut -d. -f1 )
-  elif [ -f "/etc/redhat-release" ]; then
-    distro="rh"
-    flavour=$(cat /etc/redhat-release | cut -d" " -f1 | tr '[:upper:]' '[:lower:]' )
-    version=$(cat /etc/redhat-release | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1 )
-  else
-    distro="unknown"
-  fi
-}
-
-command_exists () {
-    type "$1" &> /dev/null ;
-}
-
-debian() {
-  if [ $version -ge 8 ]; then
-#!/bin/bash
-#
 # @dorancemc - 10-sep-2016
 #
 # Script para installar nrpe
