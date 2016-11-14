@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# @dorancemc - 10-sep-2016
+# @dorancemc - 13-nov-2016
 #
 # Script para installar nrpe
-# Validado en : Debian 6+, Ubuntu 16+, Centos 6+
+# Validado en : Debian >=6, Ubuntu >=16, Centos >=6, openSuSE >=42
 #
 #
 
@@ -24,6 +24,10 @@ linux_variant() {
     distro="rh"
     flavour=$(cat /etc/redhat-release | cut -d" " -f1 | tr '[:upper:]' '[:lower:]' )
     version=$(cat /etc/redhat-release | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1 )
+  elif [ -f "/etc/SuSE-release" ]; then
+    distro="suse"
+    flavour=$(cat /etc/SuSE-release | head -1 | cut -d" " -f1 | tr '[:upper:]' '[:lower:]' )
+    version=$(cat /etc/SuSE-release | grep -i version | grep -oE '[0-9]+\.[0-9]+' | cut -d. -f1 )
   else
     distro="unknown"
   fi
@@ -53,8 +57,7 @@ debian() {
   else
     INIT_TYPE="sysv"
   fi
-  apt-get install -y git gcc libssl-dev libkrb5-dev make libmysqlclient-dev fping
-  installar_nrpe
+  debian_ubuntu_pkgs
 }
 
 ubuntu() {
@@ -63,20 +66,58 @@ ubuntu() {
   else
     INIT_TYPE="sysv"
   fi
-  apt-get install -y git gcc libssl-dev libkrb5-dev make libmysqlclient-dev fping
+  debian_ubuntu_pkgs
+}
+
+debian_ubuntu_pkgs() {
+  if [ "$nrpe_install" = "git" ]; then
+    if ! command_exists git ; then
+      apt-get install -y git
+    fi
+  fi
+  if ! command_exists lsb_release ; then
+    apt-get install -y lsb-release
+  fi
+  if ! command_exists wget ; then
+    apt-get install -y wget
+  fi
+  apt-get install -y gcc libssl-dev libkrb5-dev make fping
   installar_nrpe
 }
 
 rh() {
-  if ! command_exists wget ; then
-    yum install wget -y
-  fi
   if [ $version -ge 7 ]; then
     INIT_TYPE="systemd"
   else
     INIT_TYPE="sysv"
   fi
-  yum install -y git gcc make fping krb5-devel mysql-devel openssl-devel
+  if [ "$nrpe_install" = "git" ]; then
+    if ! command_exists git ; then
+      yum install git -y
+    fi
+  fi
+  if ! command_exists wget ; then
+    yum install wget -y
+  fi
+  yum install -y gcc make fping krb5-devel openssl-devel
+  installar_nrpe
+}
+
+suse() {
+  if [ $version -ge 12 ]; then
+    INIT_TYPE="systemd"
+  else
+    INIT_TYPE="sysv"
+  fi
+  if [ "$nrpe_install" = "git" ]; then
+    if ! command_exists git ; then
+      zypper --non-interactive install git
+    fi
+  fi
+  if ! command_exists wget ; then
+    zypper --non-interactive install wget
+  fi
+  zypper --non-interactive install gcc make fping krb5-devel libopenssl-devel
   installar_nrpe
 }
 
@@ -87,7 +128,13 @@ unknown() {
 installar_nrpe() {
   user_exist ${NAGIOS_USER} ${INSTALL_PATH}
   file_exist ${INSTALL_PATH}/etc/nrpe.cfg
-  git clone https://github.com/NagiosEnterprises/nrpe.git ${TEMP_PATH}/nrpe-${NRPE_version}
+  if [ "$nrpe_install" = "git" ]; then
+    git clone https://github.com/NagiosEnterprises/nrpe.git ${TEMP_PATH}/nrpe-${NRPE_version}
+  else
+    mkdir -p ${TEMP_PATH}
+    wget https://github.com/NagiosEnterprises/nrpe/releases/download/${NRPE_version}/nrpe-${NRPE_version}.tar.gz -O ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz
+    tar -zxvf ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz -C ${TEMP_PATH}  
+  fi
   cd ${TEMP_PATH}/nrpe-${NRPE_version} && ./configure --prefix=${INSTALL_PATH} --enable-ssl --enable-command-args --with-nrpe-user=${NAGIOS_USER} --with-nrpe-group=${NAGIOS_USER} --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-opsys=linux --with-dist-type=${distro} --with-init-type=${INIT_TYPE}
   mkdir -p /opt/nagios && groupadd -r ${NAGIOS_USER} && useradd -g ${NAGIOS_USER} -d /opt/nagios ${NAGIOS_USER} && chown -R ${NAGIOS_USER}: ${INSTALL_PATH}
   make all && make install && make install-plugin && make install-daemon && make install-config && make install-init
