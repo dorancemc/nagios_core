@@ -49,6 +49,7 @@ unknown() {
 installar_nplugins() {
   mkdir -p ${INSTALL_PATH}
   cd ${INSTALL_PATH} && wget http://www.nagios-plugins.org/download/nagios-plugins-${NPLUGINS_version}.tar.gz && tar -zxvf nagios-plugins-${NPLUGINS_version}.tar.gz && cd nagios-plugins-${NPLUGINS_version} && ./configure --prefix=/opt/nagios/ --enable-threads=posix --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-mysql --with-gnutls --with-ipv6 --with-openssl && make && make install
+  wget http://search.cpan.org/CPAN/authors/id/N/NA/NAGIOS/Nagios-Monitoring-Plugin-0.51.tar.gz && tar -zxvf Nagios-Monitoring-Plugin-0.51.tar.gz && cd Nagios-Monitoring-Plugin-0.51 && perl Makefile.PL ; make ; make install 
   yes | perl -MCPAN -E 'install Nagios::Monitoring::Plugin'
 }
 
