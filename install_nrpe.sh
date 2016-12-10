@@ -1,11 +1,14 @@
 #!/bin/bash
 #
-# @dorancemc - 13-nov-2016
+# Copyright (C) 2016 - Dorance Martinez C
+# Author: Dorance Martinez C dorancemc@gmail.com
+# SPDX-License-Identifier: GPL-3.0+
 #
-# Script para installar nrpe
+# Descripcion: Script para installar nrpe
+# Version: 0.2.0 - 09-dic-2016
 # Validado en : Debian >=6, Ubuntu >=16, Centos >=6, openSuSE >=42
 #
-#
+
 
 NRPE_version="3.0.1"
 TEMP_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
@@ -41,7 +44,7 @@ user_exist() {
   if id "$1" >/dev/null 2>&1; then
     echo "user $1 exists"
   else
-    groupadd $1 ; useradd -m -d $2 -g $1 $1 
+    groupadd $1 ; useradd -m -d $2 -g $1 $1
   fi
 }
 
@@ -54,8 +57,10 @@ file_exist() {
 debian() {
   if [ $version -ge 8 ]; then
     INIT_TYPE="systemd"
+    CMD_STARTUP="systemctl enable nrpe.service"
   else
     INIT_TYPE="sysv"
+    CMD_STARTUP="update-rc.d nrpe defaults"
   fi
   debian_ubuntu_pkgs
 }
@@ -63,8 +68,10 @@ debian() {
 ubuntu() {
   if [ $version -ge 16 ]; then
     INIT_TYPE="systemd"
+    CMD_STARTUP="systemctl enable nrpe.service"
   else
     INIT_TYPE="sysv"
+    CMD_STARTUP="update-rc.d nrpe defaults"
   fi
   debian_ubuntu_pkgs
 }
@@ -75,76 +82,72 @@ debian_ubuntu_pkgs() {
       apt-get install -y git
     fi
   fi
-  if ! command_exists lsb_release ; then
-    apt-get install -y lsb-release
-  fi
-  if ! command_exists wget ; then
-    apt-get install -y wget
-  fi
-  apt-get install -y gcc libssl-dev libkrb5-dev make fping
+  apt-get install -y wget gcc libssl-dev libkrb5-dev make fping &&
   installar_nrpe
 }
 
 rh() {
   if [ $version -ge 7 ]; then
     INIT_TYPE="systemd"
+    CMD_STARTUP="systemctl enable nrpe.service"
   else
     INIT_TYPE="sysv"
+    CMD_STARTUP="chkconfig nrpe on"
   fi
   if [ "$nrpe_install" = "git" ]; then
     if ! command_exists git ; then
       yum install git -y
     fi
   fi
-  if ! command_exists wget ; then
-    yum install wget -y
-  fi
-  yum install -y gcc make fping krb5-devel openssl-devel
+  yum install -y wget gcc make fping krb5-devel openssl-devel &&
   installar_nrpe
 }
 
 suse() {
   if [ $version -ge 12 ]; then
     INIT_TYPE="systemd"
+    CMD_STARTUP="systemctl enable nrpe.service"
   else
     INIT_TYPE="sysv"
+    CMD_STARTUP="chkconfig nrpe on"
   fi
   if [ "$nrpe_install" = "git" ]; then
     if ! command_exists git ; then
       zypper --non-interactive install git
     fi
   fi
-  if ! command_exists wget ; then
-    zypper --non-interactive install wget
-  fi
-  zypper --non-interactive install gcc make fping krb5-devel libopenssl-devel
+  zypper --non-interactive install wget gcc make fping krb5-devel libopenssl-devel
   installar_nrpe
 }
 
 unknown() {
   echo "distro no reconocida por este script :( "
+  exit 1
 }
 
 installar_nrpe() {
-  user_exist ${NAGIOS_USER} ${INSTALL_PATH}
-  file_exist ${INSTALL_PATH}/etc/nrpe.cfg
+  user_exist ${NAGIOS_USER} ${INSTALL_PATH} &&
+  file_exist ${INSTALL_PATH}/etc/nrpe.cfg &&
   if [ "$nrpe_install" = "git" ]; then
     git clone https://github.com/NagiosEnterprises/nrpe.git ${TEMP_PATH}/nrpe-${NRPE_version}
   else
-    mkdir -p ${TEMP_PATH}
-    wget https://github.com/NagiosEnterprises/nrpe/releases/download/${NRPE_version}/nrpe-${NRPE_version}.tar.gz -O ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz
-    tar -zxvf ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz -C ${TEMP_PATH}  
+    mkdir -p ${TEMP_PATH} &&
+    wget https://github.com/NagiosEnterprises/nrpe/releases/download/${NRPE_version}/nrpe-${NRPE_version}.tar.gz -O ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz &&
+    tar -zxvf ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz -C ${TEMP_PATH}
   fi
-  cd ${TEMP_PATH}/nrpe-${NRPE_version} && ./configure --prefix=${INSTALL_PATH} --enable-ssl --enable-command-args --with-nrpe-user=${NAGIOS_USER} --with-nrpe-group=${NAGIOS_USER} --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-opsys=linux --with-dist-type=${distro} --with-init-type=${INIT_TYPE}
-  mkdir -p /opt/nagios && groupadd -r ${NAGIOS_USER} && useradd -g ${NAGIOS_USER} -d /opt/nagios ${NAGIOS_USER} && chown -R ${NAGIOS_USER}: ${INSTALL_PATH}
-  make all && make install && make install-plugin && make install-daemon && make install-config && make install-init
-  mkdir -p ${INSTALL_PATH}/etc/nrpe/
-  echo "include_dir=${INSTALL_PATH}/etc/nrpe" >>${INSTALL_PATH}/etc/nrpe.cfg
+  cd ${TEMP_PATH}/nrpe-${NRPE_version} && ./configure --prefix=${INSTALL_PATH} --enable-ssl --enable-command-args --with-nrpe-user=${NAGIOS_USER} --with-nrpe-group=${NAGIOS_USER} --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-opsys=linux --with-dist-type=${distro} --with-init-type=${INIT_TYPE} &&
+  mkdir -p /opt/nagios && groupadd -r ${NAGIOS_USER} && useradd -g ${NAGIOS_USER} -d /opt/nagios ${NAGIOS_USER} && chown -R ${NAGIOS_USER}: ${INSTALL_PATH} &&
+  make all && make install && make install-plugin && make install-daemon && make install-config && make install-init &&
+  mkdir -p ${INSTALL_PATH}/etc/nrpe/ &&
+  echo "include_dir=${INSTALL_PATH}/etc/nrpe" >>${INSTALL_PATH}/etc/nrpe.cfg &&
+  $CMD_STARTUP &&
+  return 0
 }
 
 run_core() {
   linux_variant
   $distro
+  rm -rf ${TEMP_PATH}
 }
 
 run_core
