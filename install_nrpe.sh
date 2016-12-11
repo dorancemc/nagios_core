@@ -62,7 +62,8 @@ debian() {
     INIT_TYPE="sysv"
     CMD_STARTUP="update-rc.d nrpe defaults"
   fi
-  debian_ubuntu_pkgs
+  debian_ubuntu_pkgs &&
+  return 0
 }
 
 ubuntu() {
@@ -73,7 +74,8 @@ ubuntu() {
     INIT_TYPE="sysv"
     CMD_STARTUP="update-rc.d nrpe defaults"
   fi
-  debian_ubuntu_pkgs
+  debian_ubuntu_pkgs &&
+  return 0
 }
 
 debian_ubuntu_pkgs() {
@@ -83,7 +85,8 @@ debian_ubuntu_pkgs() {
     fi
   fi
   apt-get install -y wget gcc libssl-dev libkrb5-dev make fping &&
-  installar_nrpe
+  installar_nrpe &&
+  return 0
 }
 
 rh() {
@@ -100,7 +103,8 @@ rh() {
     fi
   fi
   yum install -y wget gcc make fping krb5-devel openssl-devel &&
-  installar_nrpe
+  installar_nrpe &&
+  return 0
 }
 
 suse() {
@@ -117,7 +121,8 @@ suse() {
     fi
   fi
   zypper --non-interactive install wget gcc make fping krb5-devel libopenssl-devel
-  installar_nrpe
+  installar_nrpe &&
+  return 0
 }
 
 unknown() {
@@ -136,7 +141,7 @@ installar_nrpe() {
     tar -zxvf ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz -C ${TEMP_PATH}
   fi
   cd ${TEMP_PATH}/nrpe-${NRPE_version} && ./configure --prefix=${INSTALL_PATH} --enable-ssl --enable-command-args --with-nrpe-user=${NAGIOS_USER} --with-nrpe-group=${NAGIOS_USER} --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-opsys=linux --with-dist-type=${distro} --with-init-type=${INIT_TYPE} &&
-  mkdir -p /opt/nagios && groupadd -r ${NAGIOS_USER} && useradd -g ${NAGIOS_USER} -d /opt/nagios ${NAGIOS_USER} && chown -R ${NAGIOS_USER}: ${INSTALL_PATH} &&
+  mkdir -p /opt/nagios && chown -R ${NAGIOS_USER}: ${INSTALL_PATH} &&
   make all && make install && make install-plugin && make install-daemon && make install-config && make install-init &&
   mkdir -p ${INSTALL_PATH}/etc/nrpe/ &&
   echo "include_dir=${INSTALL_PATH}/etc/nrpe" >>${INSTALL_PATH}/etc/nrpe.cfg &&
@@ -146,8 +151,10 @@ installar_nrpe() {
 
 run_core() {
   linux_variant
-  $distro
-  rm -rf ${TEMP_PATH}
+  $distro &&
+  rm -rf ${TEMP_PATH} &&
+  return 0
 }
 
-run_core
+run_core &&
+exit 0
