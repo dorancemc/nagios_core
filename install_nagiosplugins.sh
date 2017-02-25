@@ -1,13 +1,14 @@
 #!/bin/bash
 #
-# @dorancemc - 10-sep-2016
+# Author: Dorance Martinez C dorancemc@gmail.com
+# SPDX-License-Identifier: Apache-2.0
 #
-# Script para installar nagios plugins
+# Descripcion: Script para installar nagios core
+# Version: 0.2.2 - 25-feb-2017
 # Validado en : Debian 6+, Ubuntu 16+, Centos 6+
 #
-#
 
-NPLUGINS_version="2.1.3"
+NPLUGINS_version="2.1.4"
 INSTALL_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
 NAGIOS_USER="nagios"
 
@@ -39,7 +40,6 @@ rh() {
     yum install wget -y
   fi
   yum install -y perl perl-CPAN net-snmp-perl &&
-  # yes | cpan YAML &&
   installar_nplugins &&
   return 0
 }
