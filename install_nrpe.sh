@@ -10,7 +10,7 @@
 #
 
 
-NRPE_version="3.0.1"
+NRPE_version="3.1.0"
 TEMP_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
 INSTALL_PATH="/opt/nagios"
 NAGIOS_USER="nagios"
@@ -137,7 +137,7 @@ installar_nrpe() {
     git clone https://github.com/NagiosEnterprises/nrpe.git ${TEMP_PATH}/nrpe-${NRPE_version}
   else
     mkdir -p ${TEMP_PATH} &&
-    wget https://github.com/NagiosEnterprises/nrpe/releases/download/${NRPE_version}/nrpe-${NRPE_version}.tar.gz -O ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz &&
+    wget https://github.com/NagiosEnterprises/nrpe/releases/download/release-${NRPE_version}/nrpe-${NRPE_version}.tar.gz -O ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz &&
     tar -zxvf ${TEMP_PATH}/nrpe-${NRPE_version}.tar.gz -C ${TEMP_PATH}
   fi
   cd ${TEMP_PATH}/nrpe-${NRPE_version} && ./configure --prefix=${INSTALL_PATH} --enable-ssl --enable-command-args --with-nrpe-user=${NAGIOS_USER} --with-nrpe-group=${NAGIOS_USER} --with-nagios-user=${NAGIOS_USER} --with-nagios-group=${NAGIOS_USER} --with-opsys=linux --with-dist-type=${distro} --with-init-type=${INIT_TYPE} &&
