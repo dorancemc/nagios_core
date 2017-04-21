@@ -66,6 +66,10 @@ debian() {
   return 0
 }
 
+raspbian() {
+  debian
+}
+
 ubuntu() {
   if [ $version -ge 16 ]; then
     INIT_TYPE="systemd"
