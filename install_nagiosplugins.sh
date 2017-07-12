@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Descripcion: Script para installar nagios core
-# Version: 0.2.2 - 25-feb-2017
+# Version: 0.2.3 - 11-jul-2017
 # Validado en : Debian 6+, Ubuntu 16+, Centos 6+
 #
 
-NPLUGINS_version="2.1.4"
+NPLUGINS_version="2.2.1"
 INSTALL_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
 NAGIOS_USER="nagios"
 
