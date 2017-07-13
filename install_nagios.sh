@@ -129,11 +129,11 @@ debian_pkgs() {
   apt-get -y update && apt-get -y upgrade &&
   apt-get install -y make wget gcc g++ libssl-dev libkrb5-dev &&
   apt-get install -y ntp curl fping nmap vim graphviz tcpdump iptraf sudo rsync gawk whois dnsutils exim4 dos2unix sysstat &&
-  apt-get install -y apache2 libapache2-mod-auth-ntlm-winbind libfontconfig-dev vim-gtk libgd2-xpm-dev libltdl-dev libssl-dev libclass-csv-perl &&
+  apt-get install -y apache2 ssl-cert libapache2-mod-auth-ntlm-winbind libfontconfig-dev vim-gtk libgd2-xpm-dev libltdl-dev libssl-dev libclass-csv-perl &&
   if [ "$distro" = "debian" ] && [ $version -ge 9 ]; then
-    apt-get install -y libapache2-mod-php php-snmp php-gd php-mysql php-ldap 
+    apt-get install -y libapache2-mod-php php-snmp php-gd php-mysql php-ldap *libmysqlclient-dev 
   else
-    apt-get install -y php5 php5-snmp php5-gd php5-mysql php5-ldap php5-sqlite 
+    apt-get install -y php5 php5-snmp php5-gd php5-mysql php5-ldap php5-sqlite libmysqlclient-dev 
   fi
   apt-get install -y rrdtool librrds-perl libmcrypt-dev unzip &&
   apt-get install -y snmpd snmp libnet-snmp-perl &&
@@ -143,7 +143,7 @@ debian_pkgs() {
 install_mysql() {
   echo mysql-server-5.5 mysql-server/root_password password ${mysql_root_passwd} | debconf-set-selections &&
   echo mysql-server-5.5 mysql-server/root_password_again password ${mysql_root_passwd} | debconf-set-selections &&
-  apt-get install -y mysql-server *libmysqlclient-dev &&
+  apt-get install -y mysql-server &&
   return 0
 }
 
