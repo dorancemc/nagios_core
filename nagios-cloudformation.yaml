@@ -1,0 +1,397 @@
+#
+# Created by : Dorance Martinez C dorancemc@gmail.com
+#
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack the Nagios Servers
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Network Configuration"
+        Parameters:
+          - VPCID
+          - SubnetId
+      -
+        Label:
+          default: "Amazon EC2 Configuration"
+        Parameters:
+          - NagiosInstanceType
+          - FusionInstanceType
+          - LogInstanceType
+          - NNAInstanceType
+      -
+        Label:
+          default: "Management"
+        Parameters:
+          - EC2Keypair
+          - ManagementSrcIP
+          - ClientsSrcIP
+    ParameterLabels:
+      VPCID:
+        default: "Which VPC should this be deployed to?"
+
+########################################################################
+
+Parameters:
+  VPCID:
+    Description: VPC
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Description: SubnetId
+    Type: AWS::EC2::Subnet::Id
+  NagiosInstanceType:
+    Description: Instance Type for Nagios XI
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - NONE
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+  FusionInstanceType:
+    Description: Instance Type for Nagios Fusion
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - NONE
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+  LogInstanceType:
+    Description: Instance Type for Nagios Log Server
+    Type: String
+    Default: t2.medium
+    AllowedValues:
+    - NONE
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+  NNAInstanceType:
+    Description: Instance Type for Nagios Network Analyzer
+    Type: String
+    Default: t2.small
+    AllowedValues:
+    - NONE
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+  EC2Keypair:
+    Description: Keypair name for EC2 Instance
+    Type: "AWS::EC2::KeyPair::KeyName"
+  ManagementSrcIP:
+    Description: "IP or subnet allowed to access via SSH"
+    Type: String
+    Default: "0.0.0.0/32"
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: '^([0-9]+\.){3}[0-9]+\/[0-9]+$'
+  ClientsSrcIP:
+    Description: "IP or subnet allowed to access via nrpe"
+    Type: String
+    Default: "172.31.0.0/16"
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: '^([0-9]+\.){3}[0-9]+\/[0-9]+$'
+########################################################################
+Conditions:
+  NagiosInstanceCreate: !Not [!Equals [!Ref NagiosInstanceType, "NONE"]]
+  FusionInstanceCreate: !Not [!Equals [!Ref FusionInstanceType, "NONE"]]
+  LogInstanceCreate: !Not [!Equals [!Ref LogInstanceType, "NONE"]]
+  NNAInstanceCreate: !Not [!Equals [!Ref NNAInstanceType, "NONE"]]
+########################################################################
+Resources:
+  NagiosSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 'Nagios Access Security Group'
+      GroupDescription: 'Nagios Access Security Group'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref ManagementSrcIP
+        - IpProtocol: tcp
+          FromPort: '5666'
+          ToPort: '5666'
+          CidrIp: !Ref ClientsSrcIP
+        - IpProtocol: icmp
+          FromPort: '-1'
+          ToPort: '-1'
+          CidrIp: !Ref ClientsSrcIP
+      Tags:
+        - Key: Name
+          Value: RulesInbound
+  NagiosXI:
+    Type: AWS::EC2::Instance
+    Condition: NagiosInstanceCreate
+    Properties:
+      Tags:
+        - Key: Name
+          Value: nagiosxi-cf
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          #disable selinux
+          sudo sed -i 's/enforcing/disabled/g' /etc/selinux/config
+          #config hostname
+          hostname nagiosxi
+          echo "nagiosxi" >/etc/hostname
+          # configure awscli
+          yum install -y epel-release
+          yum install -y awscli
+          /usr/bin/easy_install --script-dir /opt/aws/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          cp -v /usr/lib/python2*/site-packages/aws_cfn_bootstrap*/init/redhat/cfn-hup /etc/init.d
+          chmod +x /etc/init.d/cfn-hup
+          #/opt/aws/bin/cfn-init --stack ${AWS::StackId} --resource NagiosXI --region ${AWS::Region}
+          #/opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} --resource NagiosXI --region ${AWS::Region}
+          #installing nagionxi
+          cd /tmp/ &&
+          yum install -y wget &&
+          wget http://assets.nagios.com/downloads/nagiosxi/xi-latest.tar.gz &&
+          tar -zxf xi-latest.tar.gz &&
+          cd /tmp/nagiosxi/ &&
+          ./fullinstall -n &&
+          # apache configuration for https redirect
+          echo "RewriteEngine On" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteCond %{HTTPS} off" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteRule (.*) https://%{SERVER_NAME}/$1 [R,L]" >>/etc/httpd/conf/httpd.conf
+          #reboot the host
+          reboot
+      ImageId: ami-65e0e305
+      KeyName:
+        Ref: EC2Keypair
+      InstanceType:
+        Ref: NagiosInstanceType
+      SecurityGroupIds:
+        - !GetAtt NagiosSecurityGroup.GroupId
+      SubnetId: !Ref SubnetId
+    DependsOn: NagiosSecurityGroup
+  NagiosFusion:
+    Type: AWS::EC2::Instance
+    Condition: FusionInstanceCreate
+    Properties:
+      Tags:
+        - Key: Name
+          Value: nagiosfusion-cf
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          #disable selinux
+          sudo sed -i 's/enforcing/disabled/g' /etc/selinux/config
+          #config hostname
+          hostname nagiosfusion
+          echo "nagiosfusion" >/etc/hostname
+          #installing nagiosfusion
+          service crond stop &&
+          cd /tmp/ &&
+          yum install -y wget &&
+          wget https://assets.nagios.com/downloads/nagiosfusion/fusion-latest.tar.gz &&
+          tar -zxf fusion-latest.tar.gz &&
+          cd /tmp/nagiosfusion/ &&
+          ./fullinstall -n &&
+          yum install -y mod_ssl &&
+          # apache configuration for https redirect
+          echo "RewriteEngine On" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteCond %{HTTPS} off" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteRule (.*) https://%{SERVER_NAME}/$1 [R,L]" >>/etc/httpd/conf/httpd.conf
+          #reboot the host
+          reboot
+      ImageId: ami-65e0e305
+      KeyName:
+        Ref: EC2Keypair
+      InstanceType:
+        Ref: FusionInstanceType
+      SecurityGroupIds:
+        - !GetAtt NagiosSecurityGroup.GroupId
+      SubnetId: !Ref SubnetId
+    DependsOn: NagiosSecurityGroup
+  NagiosLog:
+    Type: AWS::EC2::Instance
+    Condition: LogInstanceCreate
+    Properties:
+      Tags:
+        - Key: Name
+          Value: nagioslog-cf
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          #disable selinux
+          sudo sed -i 's/enforcing/disabled/g' /etc/selinux/config
+          #config hostname
+          hostname nagioslog
+          echo "nagioslog" >/etc/hostname
+          #install nagios log server
+          cd /tmp/ &&
+          yum install -y wget &&
+          wget https://assets.nagios.com/downloads/nagios-log-server/nagioslogserver-latest.tar.gz &&
+          tar -zxf nagioslogserver-latest.tar.gz &&
+          cd /tmp/nagioslogserver/ &&
+          ./fullinstall -m -n &&
+          yum install -y mod_ssl &&
+          # apache configuration for https redirect
+          sed -i 's/<\/VirtualHost>//g' /etc/httpd/conf.d/ssl.conf
+          cat << 'EOL' >> /etc/httpd/conf.d/ssl.conf
+          <IfModule mod_rewrite.c>
+          RewriteEngine on
+          RewriteCond $1 !^(index\.php|scripts|media|app|js|css|img|font|vendor|config.js)
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteCond %{REQUEST_FILENAME} !-d
+          RewriteRule nagioslogserver/(.*)$ /var/www/html/nagioslogserver/www/index.php/$1 [L,QSA]
+          </IfModule>
+
+          </VirtualHost>
+          EOL
+          echo "RewriteEngine On" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteCond %{HTTPS} off" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}" >>/etc/httpd/conf/httpd.conf
+          #reboot the host
+          reboot
+      ImageId: ami-65e0e305
+      KeyName:
+        Ref: EC2Keypair
+      InstanceType:
+        Ref: LogInstanceType
+      SecurityGroupIds:
+        - !GetAtt NagiosSecurityGroup.GroupId
+      SubnetId: !Ref SubnetId
+    DependsOn: NagiosSecurityGroup
+  NagiosNA:
+    Type: AWS::EC2::Instance
+    Condition: NNAInstanceCreate
+    Properties:
+      Tags:
+        - Key: Name
+          Value: nagiosna-cf
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          #disable selinux
+          sudo sed -i 's/enforcing/disabled/g' /etc/selinux/config
+          #config hostname
+          hostname nagiosna
+          echo "nagiosna" >/etc/hostname
+          #install nagios network analyzer
+          cd /tmp/ &&
+          yum install -y wget &&
+          wget  https://assets.nagios.com/downloads/nagios-network-analyzer/nagiosna-latest.tar.gz &&
+          tar -zxf nagiosna-latest.tar.gz &&
+          cd /tmp/nagiosna/ &&
+          ./fullinstall -n &&
+          yum install -y mod_ssl &&
+          # apache configuration for https redirect
+          sed -i 's/<\/VirtualHost>//g' /etc/httpd/conf.d/ssl.conf
+          cat << 'EOL' >> /etc/httpd/conf.d/ssl.conf
+          <IfModule mod_rewrite.c>
+          RewriteEngine on
+          RewriteCond $1 !^(index\.php|scripts|media|app|js|css|img|font|vendor|config.js)
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteCond %{REQUEST_FILENAME} !-d
+          RewriteRule nagiosna/(.*)$ /var/www/html/nagiosna/www/index.php/$1 [L,QSA]
+          </IfModule>
+
+          </VirtualHost>
+          EOL
+          echo "RewriteEngine On" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteCond %{HTTPS} off" >>/etc/httpd/conf/httpd.conf
+          echo "RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}" >>/etc/httpd/conf/httpd.conf
+          #reboot the host
+          reboot
+      ImageId: ami-65e0e305
+      KeyName:
+        Ref: EC2Keypair
+      InstanceType:
+        Ref: NNAInstanceType
+      SecurityGroupIds:
+        - !GetAtt NagiosSecurityGroup.GroupId
+      SubnetId: !Ref SubnetId
+    DependsOn: NagiosSecurityGroup
+
+
+########################################################################
+
+Outputs:
+  IPNagiosXI:
+    Description: Nagios XI IP
+    Condition: NagiosInstanceCreate
+    Value: !GetAtt NagiosXI.PublicIp
+  PrivateIPNagiosXI:
+    Description: Nagios XI IP Private
+    Condition: NagiosInstanceCreate
+    Value: !GetAtt NagiosXI.PrivateIp
+  WebNagiosXI:
+    Description: Nagios XI URL Web Site
+    Condition: NagiosInstanceCreate
+    Value:
+      !Join [ "", [ 'https://',!GetAtt NagiosXI.PublicDnsName ]]
+  LogNagiosXI:
+    Description: Check the Nagios installation on log
+    Condition: NagiosInstanceCreate
+    Value: "sudo tail -f /tmp/nagiosxi/install.log"
+  IPNagiosFusion:
+    Description: Nagios Fusion IP
+    Condition: FusionInstanceCreate
+    Value: !GetAtt NagiosFusion.PublicIp
+  PrivateIPFusion:
+    Description: Nagios Fusion IP Private
+    Condition: FusionInstanceCreate
+    Value: !GetAtt NagiosFusion.PrivateIp
+  WebNagiosFusion:
+    Description: Nagios Fusion URL Web Site
+    Condition: FusionInstanceCreate
+    Value:
+      !Join [ "", [ 'https://',!GetAtt NagiosFusion.PublicDnsName ]]
+  LogNagiosFusion:
+    Description: Check the Nagios Fusion installation on log
+    Condition: FusionInstanceCreate
+    Value: "sudo tail -f /tmp/nagiosfusion/install.log"
+  IPNagiosLog:
+    Description: Nagios Log Server IP
+    Condition: LogInstanceCreate
+    Value: !GetAtt NagiosLog.PublicIp
+  PrivateIPLog:
+    Description: Nagios Log IP Private
+    Condition: LogInstanceCreate
+    Value: !GetAtt NagiosLog.PrivateIp
+  WebNagiosLog:
+    Description: Nagios Log URL Web Site
+    Condition: LogInstanceCreate
+    Value:
+      !Join [ "", [ 'https://',!GetAtt NagiosLog.PublicDnsName ]]
+  LogNagiosLog:
+    Description: Check the Nagios Log installation on log
+    Condition: LogInstanceCreate
+    Value: "sudo tail -f /tmp/nagioslogserver/install.log"
+  IPNagiosNA:
+    Description: Nagios Network Analyzer IP
+    Condition: NNAInstanceCreate
+    Value: !GetAtt NagiosNA.PublicIp
+  PrivateIPNagionNA:
+    Description: Nagios Network Analyzer IP Private
+    Condition: NNAInstanceCreate
+    Value: !GetAtt NagiosNA.PrivateIp
+  WebNagiosNA:
+    Description: Nagios Network Analyzer URL Web Site
+    Condition: NNAInstanceCreate
+    Value:
+      !Join [ "", [ 'https://',!GetAtt NagiosNA.PublicDnsName ]]
+  LogNagiosNA:
+    Description: Check the Nagios Network Analyzer installation on log
+    Condition: NNAInstanceCreate
+    Value: "sudo tail -f /tmp/nagiosna/install.log"
