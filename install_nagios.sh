@@ -5,27 +5,26 @@
 # SPDX-License-Identifier: GPL-3.0+
 #
 # Descripcion: Script para installar nagios core
-# Version: 0.3.1 - 16-apr-2017
-# Validado: Debian >=8
+# Version: 0.4.0 - 9-jun-2018
+# Validado: Debian >=9
 #
 
-nagioscore_version="4.3.2"
-pnp4nagios_version="0.6.25"
+nagioscore_version="4.3.4"
+pnp4nagios_version="0.6.26"
 
 temp_path="/temp/nagios_`date +%Y%m%d%H%M%S`"
 install_path="/opt/nagios"
 install_pnp4nagios="/opt/pnp4nagios"
-install_nconf="/opt/nconf"
+install_nagiosql="/opt/nagiosql"
 
 user_nagios="nagios"
-user_apache="www-data"
 
 mysql_root_passwd=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12)
 nagiosadmin_passwd=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12)
-mynconf_db="nconf_db"
-mynconf_user="nconf_user"
-mynconf_passwd=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12)
-mynconf_host="localhost"
+mynagiosql_db="nagiosqldb"
+mynagiosql_user="nagiosqluser"
+mynagiosql_passwd=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12)
+mynagiosql_host="localhost"
 
 hostname="nagioscore"
 
@@ -67,20 +66,22 @@ insertAfter() {
 }
 
 raspbian() {
-  if [ $version -ge 8 ]; then
+  if [ $version -ge 9 ]; then
     INIT_TYPE="systemd"
   else
-    INIT_TYPE="sysv"
+    echo "This script requires Raspian 9"
+    exit 1
   fi
   debian_flavor &&
   return 0
 }
 
 debian() {
-  if [ $version -ge 8 ]; then
+  if [ $version -ge 9 ]; then
     INIT_TYPE="systemd"
   else
-    INIT_TYPE="sysv"
+    echo "This script requires Debian 9 'stretch'"
+    exit 1
   fi
   debian_flavor &&
   return 0
@@ -97,16 +98,17 @@ ubuntu() {
 }
 
 debian_flavor() {
+  user_apache="www-data"
   debian_pkgs &&
-  install_mysql &&
+  install_mariadb &&
   install_nagioscore &&
   configure_nagioscore &&
   install_nrpe &&
   configure_nrpe &&
   install_pnp4nagios &&
   configure_pnp4nagios &&
-  install_nconf &&
-  configure_nconf &&
+  install_nagiosql &&
+  configure_nagiosql &&
   crear_carcelero &&
   return 0
 }
@@ -130,20 +132,19 @@ debian_pkgs() {
   apt-get install -y make wget gcc g++ libssl-dev libkrb5-dev &&
   apt-get install -y ntp curl fping nmap vim graphviz tcpdump iptraf sudo rsync gawk whois dnsutils exim4 dos2unix sysstat &&
   apt-get install -y apache2 ssl-cert libapache2-mod-auth-ntlm-winbind libfontconfig-dev vim-gtk libgd2-xpm-dev libltdl-dev libssl-dev libclass-csv-perl &&
-  if [ "$distro" = "debian" ] && [ $version -ge 9 ]; then
-    apt-get install -y libapache2-mod-php php-snmp php-gd php-mysql php-ldap *libmysqlclient-dev 
-  else
-    apt-get install -y php5 php5-snmp php5-gd php5-mysql php5-ldap php5-sqlite libmysqlclient-dev 
-  fi
+  apt-get install -y php-pear libapache2-mod-php php-snmp php-gd php-mysql php-ldap *libmysqlclient-dev
   apt-get install -y rrdtool librrds-perl libmcrypt-dev unzip &&
   apt-get install -y snmpd snmp libnet-snmp-perl &&
   return 0
 }
 
-install_mysql() {
-  echo mysql-server-5.5 mysql-server/root_password password ${mysql_root_passwd} | debconf-set-selections &&
-  echo mysql-server-5.5 mysql-server/root_password_again password ${mysql_root_passwd} | debconf-set-selections &&
-  apt-get install -y mysql-server &&
+install_mariadb() {
+  if [ $mynagiosql_host = "localhost" ]; then
+    echo mysql-server-5.5 mysql-server/root_password password ${mysql_root_passwd} | debconf-set-selections &&
+    echo mysql-server-5.5 mysql-server/root_password_again password ${mysql_root_passwd} | debconf-set-selections &&
+    apt-get install -y mariadb-server &&
+    return 0
+  fi
   return 0
 }
 
@@ -258,27 +259,17 @@ EOF
   return 0
 }
 
-install_nconf(){
+install_nagiosql(){
   mkdir -p ${temp_path} && cd ${temp_path} &&
-  wget http://downloads.sourceforge.net/project/nconf/nconf/1.3.0-0/nconf-1.3.0-0.tgz &&
-  tar -zxf nconf-1.3.0-0.tgz && mv nconf ${install_nconf} &&
+  wget https://newcontinuum.dl.sourceforge.net/project/nagiosql/nagiosql/NagiosQL%203.4.0/nagiosql-3.4.0.tar.gz &&
+  tar -zxf nagiosql-3.4.0.tar.gz && mv nagiosql-3.4.0 ${install_nagiosql} &&
   return 0
 }
 
-configure_nconf() {
-  cp ${install_nconf}/config.orig/* ${install_nconf}/config/ &&
-  cp ${install_nconf}/config.orig/.file_accounts.php ${install_nconf}/config/ &&
-  local tmp=$(echo ${install_nconf} | sed 's/\//\\\//g')
-  sed -i "s/\$nconfdir/\"$tmp\"/g" ${install_nconf}/config/nconf.php &&
-  local tmp=$(echo ${install_path} | sed 's/\//\\\//g')
-  sed -i "s/\/var\/www\/nconf/$tmp/g" ${install_nconf}/config/nconf.php &&
-  sed -i "s/^cfg_file=/#cfg_file=/g" ${install_path}/etc/nagios.cfg &&
-  sed -i 's/$max_length = ""/$max_length = "0"/g' ${install_nconf}/modify_attr_write2db.php &&
-  sed -i "s/'AUTH_ENABLED', \"0\"/'AUTH_ENABLED', \"1\"/g" ${install_nconf}/config/authentication.php
-  mkdir -p ${temp_path} && cd ${temp_path} &&
-  cat <<EOF > apache_nconf.conf
-Alias /nconf  "$install_nconf"
-<Directory "$install_nconf">
+configure_nagiosql() {
+  cat <<EOF > /etc/apache2/sites-enabled/nagiosql.conf
+Alias /nagiosql  "$install_nagiosql"
+<Directory "$install_nagiosql">
 
 SSLRequireSSL
 Options None
@@ -288,82 +279,98 @@ Allow from all
 
 AuthName "Nagios Access"
 AuthType Basic
-AuthUserFile /opt/nagios/etc/htpasswd.users
+AuthUserFile ${install_path}/etc/htpasswd.users
 Require valid-user
 #
 </Directory>
 EOF
-  mv apache_nconf.conf /etc/apache2/sites-enabled/nconf.conf
 
-cat <<EOF > mysql.php
+cat <<EOF > ${install_nagiosql}/config/settings.php
 <?php
-  define('DBHOST', '$mynconf_host');
-  define('DBNAME', '$mynconf_db');
-  define('DBUSER', '$mynconf_user');
-  define('DBPASS', '$mynconf_passwd');
+exit;
 ?>
+[db]
+type         = mysqli
+server       = ${mynagiosql_host}
+port         = 3306
+database     = ${mynagiosql_db}
+username     = ${mynagiosql_user}
+password     = ${mynagiosql_passwd}
+[path]
+base_url     = /nagiosql/
+base_path    = ${install_nagiosql}/
 EOF
-  mv mysql.php $install_nconf/config/mysql.php
 
-cat <<EOF > deployment.ini
-[extract config]
-type        = local
-source_file = $install_nconf/output/NagiosConfig.tgz
-target_file = $install_path/tmp/_nconf/
-action      = extract
-
-[copy collector config]
-type        = local
-source_file = $install_path/tmp/_nconf/server/
-target_file = $install_path/etc/server/
-action      = copy
-
-[copy global config]
-type        = local
-source_file = $install_path/tmp/_nconf/global/
-target_file = $install_path/etc/global/
-action      = copy
-reload_command = sudo /usr/sbin/service nagios reload
-EOF
-  mv deployment.ini $install_nconf/config/deployment.ini &&
-  mkdir -p $install_path/etc/server &&
-  mkdir -p $install_path/etc/global &&
-  mkdir -p $install_nconf/temp/server &&
-  mkdir -p $install_path/tmp/_nconf/server &&
-  mkdir -p $install_path/tmp/_nconf/global &&
-  chown -R $user_apache: $install_path/tmp/_nconf $install_path/etc/server $install_path/etc/global $install_nconf/temp/server &&
-  chown -R $user_apache: $install_nconf/ $install_path/etc/server $install_path/etc/global &&
-  chown -R $user_apache: $install_nconf/ $install_path/etc/server $install_path/etc/global &&
-  echo "cfg_dir=$install_path/etc/server" >>$install_path/etc/nagios.cfg &&
-  echo "cfg_dir=$install_path/etc/global" >>$install_path/etc/nagios.cfg &&
-  echo 'www-data ALL = (root) NOPASSWD:/usr/sbin/service nagios reload' >>/etc/sudoers &&
-  configure_mysql_nconf &&
-  rm -rf $install_nconf/INSTALL/ && rm -rf $install_nconf/INSTALL.php &&
-  rm -rf $install_nconf/UPDATE/ && rm -rf $install_nconf/UPDATE.php &&
+  sed -i 's/^;date.timezone.*/date.timezone = "America\/Bogota"/g' /etc/php/7.0/apache2/php.ini &&
+  mkdir -p ${install_path}/etc/nagiosql/hosts &&
+  mkdir -p ${install_path}/etc/nagiosql/services &&
+  mkdir -p ${install_path}/etc/nagiosql/backup/hosts &&
+  mkdir -p ${install_path}/etc/nagiosql/backup/services &&
+  sed -i "s/^cfg_file=/#cfg_file=/g" ${install_path}/etc/nagios.cfg &&
+  echo "cfg_dir=$install_path/etc/nagiosql" >>$install_path/etc/nagios.cfg &&
+  chown -R ${user_apache}:${user_nagios} ${install_path}/etc/nagiosql &&
+  chown ${user_apache}.${user_nagios} ${install_path}/etc/nagios.cfg &&
+  chown ${user_apache}.${user_nagios} ${install_path}/etc/cgi.cfg &&
+  chown ${user_apache}.${user_nagios} ${install_path}/var/rw/nagios.cmd &&
+  chmod 640 ${install_path}/etc/nagios.cfg &&
+  chmod 640 ${install_path}/etc/cgi.cfg &&
+  chmod 660 ${install_path}/var/rw/nagios.cmd &&
+  configure_mysql_nagiosql &&
+  rm -rf ${install_nagiosql}/install/ &&
   service apache2 restart &&
   return 0
   }
 
-configure_mysql_nconf() {
-  /usr/bin/curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/nconf_base.sql >$temp_path/nconf_base.sql &&
-  /usr/bin/mysql -u root -p${mysql_root_passwd} -e  "create database ${mynconf_db}; create user ${mynconf_user} identified by \"${mynconf_passwd}\"; grant all on ${mynconf_db}.* to ${mynconf_user}" &&
-  /usr/bin/mysql -u ${mynconf_user} -p${mynconf_passwd} ${mynconf_db} <${install_nconf}/INSTALL/create_database.sql &&
-  /usr/bin/mysql -u $mynconf_user -p$mynconf_passwd $mynconf_db <$temp_path/nconf_base.sql &&
+configure_mysql_nagiosql() {
+  if [ $mynagiosql_host = "localhost" ]; then
+    /usr/bin/mysql -u root -p${mysql_root_passwd} -e  "create database ${mynagiosql_db}; create user ${mynagiosql_user} identified by \"${mynagiosql_passwd}\"; grant all on ${mynagiosql_db}.* to ${mynagiosql_user}"
+  fi
+  /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/nagiosQL_v34_db_mysql.sql &&
+
+cat <<EOF > ${install_nagiosql}/install/sql/install_queries.sql
+UPDATE tbl_configtarget
+SET
+  basedir = '${install_path}/etc/nagiosql/',
+  hostconfig = '${install_path}/etc/nagiosql/hosts/',
+  serviceconfig = '${install_path}/etc/nagiosql/services/',
+  backupdir = '${install_path}/etc/nagiosql/backup/',
+  hostbackup = '${install_path}/etc/nagiosql/backup/hosts/',
+  servicebackup = '${install_path}/etc/nagiosql/backup/services/',
+  nagiosbasedir = '${install_path}/etc/',
+  importdir = '${install_path}/etc/objects/',
+  picturedir = '',
+  commandfile = '${install_path}/var/rw/nagios.cmd',
+  binaryfile = '${install_path}/bin/nagios',
+  pidfile = '/run/nagios.lock',
+  conffile = '${install_path}/etc/nagios.cfg',
+  cgifile = '${install_path}/etc/cgi.cfg',
+  resourcefile = '${install_path}/etc/resource.cfg',
+  version = 4,
+  access_group = 0,
+  active = '1',
+  nodelete = '1'
+  WHERE id = 1;
+
+  INSERT INTO tbl_settings VALUES (1,'db','version','3.4.0'),(2,'db','type','mysqli'),(3,'path','protocol','https'),(4,'path','tempdir','/tmp'),(5,'path','base_url','/nagiosql/'),(6,'path','base_path','${install_nagiosql}'),(7,'data','locale','en_GB'),(8,'data','encoding','utf-8'),(9,'security','logofftime','3600'),(10,'security','wsauth','1'),(11,'common','pagelines','30'),(12,'common','seldisable','1'),(13,'common','tplcheck','1'),(14,'common','updcheck','1'),(15,'network','proxy','0'),(16,'network','proxyserver',''),(17,'network','proxyuser',''),(18,'network','proxypasswd',''),(19,'network','onlineupdate','0');
+  INSERT INTO tbl_user VALUES (1,'nagiosadmin','Administrator','','1','1','1','1','1',1,'','');
+EOF
+  /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/install_queries.sql &&
   return 0
 }
 
 
 crear_carcelero() {
   cd ${install_path} &&
+ipaddress=$(ip addr | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1')
 cat <<EOF > .carcelero
 -- nagios site --
-nagios url = https://host/
+nagios url = https://${ipaddress}/
 nagios user / password = nagiosadmin / $nagiosadmin_passwd
--- nconf --
-nconf user / password = admin / nconf
-url for nconf: http://host/nconf
--- mysql --
-database nconf = $mynconf_user / $mynconf_passwd
+-- nagiosql --
+nagiosql user / password = nagiosadmin / $nagiosadmin_passwd
+url for nagiosql: http://${ipaddress}/nagiosql
+-- mariadb --
+database nagiosql = $mynagiosql_user / $mynagiosql_passwd
 mysql_root_passwd=$mysql_root_passwd
 EOF
   chown ${user_nagios}: ${install_path}/.carcelero &&
