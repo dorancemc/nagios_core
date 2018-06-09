@@ -5,12 +5,12 @@
 # SPDX-License-Identifier: GPL-3.0+
 #
 # Descripcion: Script para installar nrpe
-# Version: 0.2.1 - 12-jul-2017
+# Version: 0.2.2 - 9-jun-2018
 # Validado en : Debian >=6, Ubuntu >=16, Centos >=6, openSuSE >=42
 #
 
 
-NRPE_version="3.2.0"
+NRPE_version="3.2.1"
 TEMP_PATH="/tmp/nagios_`date +%Y%m%d%H%M%S`"
 INSTALL_PATH="/opt/nagios"
 NAGIOS_USER="nagios"
@@ -130,7 +130,7 @@ suse() {
 }
 
 unknown() {
-  echo "distro no reconocida por este script :( "
+  echo "Sorry, I can't identify your Linux version :( "
   exit 1
 }
 
