@@ -5,11 +5,11 @@
 # SPDX-License-Identifier: GPL-3.0+
 #
 # Descripcion: Script para installar nagios core
-# Version: 0.4.0 - 9-jun-2018
+# Version: 0.6.0 - 16-mar-2020
 # Validado: Debian >=9
 #
 
-nagioscore_version="4.3.4"
+nagioscore_version="4.4.5"
 pnp4nagios_version="0.6.26"
 
 temp_path="/temp/nagios_`date +%Y%m%d%H%M%S`"
@@ -107,8 +107,10 @@ debian_flavor() {
   configure_nrpe &&
   install_pnp4nagios &&
   configure_pnp4nagios &&
+  install_grafana &&
   install_nagiosql &&
   configure_nagiosql &&
+  crear_backup &&
   crear_carcelero &&
   return 0
 }
@@ -154,7 +156,7 @@ install_nagioscore() {
   wget https://assets.nagios.com/downloads/nagioscore/releases/nagios-${nagioscore_version}.tar.gz &&
   tar -zxf nagios-${nagioscore_version}.tar.gz &&
   cd nagios-${nagioscore_version} &&
-  ./configure --prefix=${install_path} --with-nagios-user=${user_nagios} --with-nagios-group=${user_nagios} --with-htmurl=/nagios --with-init-type=${INIT_TYPE} && make all && make install && make install-init && make install-commandmode && make install-config &&
+  ./configure --prefix=${install_path} --with-nagios-user=${user_nagios} --with-nagios-group=${user_nagios} --enable-event-broker --with-htmurl=/nagios --with-init-type=${INIT_TYPE} && make all && make install && make install-init && make install-commandmode && make install-config &&
   sed -i "s/#  SSLRequireSSL/   SSLRequireSSL/g" ${temp_path}/nagios-${nagioscore_version}/sample-config/httpd.conf &&
   make install-webconf && make install-exfoliation &&
   return 0
@@ -173,7 +175,7 @@ configure_nagioscore() {
 </head>
 EOF
   mv index.html /var/www/html/index.html
-  update-rc.d nagios defaults &&
+  systemctl enable nagios &&
   /usr/sbin/a2enmod rewrite cgi &&
   /usr/sbin/a2enmod ssl &&
   /usr/sbin/a2ensite default-ssl &&
@@ -183,8 +185,8 @@ EOF
 }
 
 install_nrpe() {
-  curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/install_nrpe.sh | bash &&
-  curl -k https://raw.githubusercontent.com/dorancemc/nagios_core/master/install_nagiosplugins.sh | sh &&
+  curl -k https://gitlab.com/dmcico/nagios/raw/master/install_nrpe.sh | bash &&
+  curl -k https://gitlab.com/dmcico/nagios/raw/master/install_nagiosplugins.sh | sh &&
   mkdir -p ${install_path}/etc/nrpe/ &&
   mkdir -p ${install_path}/libexec/other/ &&
   return 0
@@ -209,6 +211,22 @@ install_pnp4nagios() {
   tar -zxf pnp4nagios-${pnp4nagios_version}.tar.gz && cd pnp4nagios-${pnp4nagios_version} &&
   ./configure --with-nagios-user=${user_nagios} --with-nagios-group=${user_nagios} --prefix=${install_pnp4nagios} && make all && make fullinstall &&
   return 0
+}
+
+install_grafana() {
+  apt-get install -y apt-transport-https
+  apt-get install -y software-properties-common wget
+  wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+  add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+  apt-get update
+  apt-get install grafana
+  systemctl enable grafana-server
+  systemctl start grafana-server
+  /usr/sbin/grafana-cli plugins install sni-pnp-datasource
+  systemctl restart grafana-server.service
+  wget -O /opt/pnp4nagios/share/application/controllers/api.php "https://github.com/lingej/pnp-metrics-api/raw/master/application/controller/api.php"
+  sed -i '/Require valid-user/a\        Require ip 127.0.0.1 ::1' /etc/apache2/sites-enabled/pnp4nagios.conf
+  systemctl restart apache2.service
 }
 
 configure_pnp4nagios() {
@@ -261,8 +279,8 @@ EOF
 
 install_nagiosql(){
   mkdir -p ${temp_path} && cd ${temp_path} &&
-  wget https://newcontinuum.dl.sourceforge.net/project/nagiosql/nagiosql/NagiosQL%203.4.0/nagiosql-3.4.0.tar.gz &&
-  tar -zxf nagiosql-3.4.0.tar.gz && mv nagiosql-3.4.0 ${install_nagiosql} &&
+  wget https://gitlab.com/wizonet/nagiosql/-/archive/3.4.1-git2020-01-19/nagiosql-3.4.1-git2020-01-19.zip &&
+  unzip nagiosql-3.4.1-git2020-01-19.zip && mv nagiosql-3.4.1-git2020-01-19 ${install_nagiosql} &&
   return 0
 }
 
@@ -304,11 +322,12 @@ EOF
   sed -i 's/^;date.timezone.*/date.timezone = "America\/Bogota"/g' /etc/php/7.0/apache2/php.ini &&
   mkdir -p ${install_path}/etc/nagiosql/hosts &&
   mkdir -p ${install_path}/etc/nagiosql/services &&
-  mkdir -p ${install_path}/etc/nagiosql/backup/hosts &&
-  mkdir -p ${install_path}/etc/nagiosql/backup/services &&
+  mkdir -p ${install_nagiosql}/backup/hosts &&
+  mkdir -p ${install_nagiosql}/backup/services &&
   sed -i "s/^cfg_file=/#cfg_file=/g" ${install_path}/etc/nagios.cfg &&
   echo "cfg_dir=$install_path/etc/nagiosql" >>$install_path/etc/nagios.cfg &&
   chown -R ${user_apache}:${user_nagios} ${install_path}/etc/nagiosql &&
+  chown -R www-data: ${install_nagiosql}/backup/
   chown ${user_apache}.${user_nagios} ${install_path}/etc/nagios.cfg &&
   chown ${user_apache}.${user_nagios} ${install_path}/etc/cgi.cfg &&
   chown ${user_apache}.${user_nagios} ${install_path}/var/rw/nagios.cmd &&
@@ -325,7 +344,9 @@ configure_mysql_nagiosql() {
   if [ $mynagiosql_host = "localhost" ]; then
     /usr/bin/mysql -u root -p${mysql_root_passwd} -e  "create database ${mynagiosql_db}; create user ${mynagiosql_user} identified by \"${mynagiosql_passwd}\"; grant all on ${mynagiosql_db}.* to ${mynagiosql_user}"
   fi
-  /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/nagiosQL_v34_db_mysql.sql &&
+  /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/nagiosQL_v341_db_mysql.sql
+  # wget https://gitlab.com/dmcico/nagios/raw/master/nagios_core/nagiosqldb.sql -O ${install_nagiosql}/install/sql/nagiosqldb.sql &&
+  # /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/nagiosqldb.sql
 
 cat <<EOF > ${install_nagiosql}/install/sql/install_queries.sql
 UPDATE tbl_configtarget
@@ -334,8 +355,8 @@ SET
   hostconfig = '${install_path}/etc/nagiosql/hosts/',
   serviceconfig = '${install_path}/etc/nagiosql/services/',
   backupdir = '${install_path}/etc/nagiosql/backup/',
-  hostbackup = '${install_path}/etc/nagiosql/backup/hosts/',
-  servicebackup = '${install_path}/etc/nagiosql/backup/services/',
+  hostbackup = '${install_nagiosql}/backup/hosts/',
+  servicebackup = '${install_nagiosql}/backup/services/',
   nagiosbasedir = '${install_path}/etc/',
   importdir = '${install_path}/etc/objects/',
   picturedir = '',
@@ -351,13 +372,30 @@ SET
   nodelete = '1'
   WHERE id = 1;
 
-  INSERT INTO tbl_settings VALUES (1,'db','version','3.4.0'),(2,'db','type','mysqli'),(3,'path','protocol','https'),(4,'path','tempdir','/tmp'),(5,'path','base_url','/nagiosql/'),(6,'path','base_path','${install_nagiosql}'),(7,'data','locale','en_GB'),(8,'data','encoding','utf-8'),(9,'security','logofftime','3600'),(10,'security','wsauth','1'),(11,'common','pagelines','30'),(12,'common','seldisable','1'),(13,'common','tplcheck','1'),(14,'common','updcheck','1'),(15,'network','proxy','0'),(16,'network','proxyserver',''),(17,'network','proxyuser',''),(18,'network','proxypasswd',''),(19,'network','onlineupdate','0');
+  INSERT INTO tbl_settings VALUES (1,'db','version','3.4.1'),(2,'db','type','mysqli'),(3,'path','protocol','https'),(4,'path','tempdir','/tmp'),(5,'path','base_url','/nagiosql/'),(6,'path','base_path','${install_nagiosql}'),(7,'data','locale','en_GB'),(8,'data','encoding','utf-8'),(9,'security','logofftime','3600'),(10,'security','wsauth','1'),(11,'common','pagelines','30'),(12,'common','seldisable','1'),(13,'common','tplcheck','1'),(14,'common','updcheck','1'),(15,'network','proxy','0'),(16,'network','proxyserver',''),(17,'network','proxyuser',''),(18,'network','proxypasswd',''),(19,'network','onlineupdate','0');
   INSERT INTO tbl_user VALUES (1,'nagiosadmin','Administrator','','1','1','1','1','1',1,'','');
 EOF
+
   /usr/bin/mysql -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} <${install_nagiosql}/install/sql/install_queries.sql &&
+
   return 0
 }
 
+crear_backup() {
+  mkdir -p /scripts
+cat <<EOF > /scripts/backup.sh
+#!/bin/sh
+# script to delete old data and run backup
+# dorancemc@
+#
+mkdir -p /backups
+find /backups -mtime +7 -delete
+find /opt/nagiosql/backup/ -mtime +7 -delete
+mysqldump -u ${mynagiosql_user} -p${mynagiosql_passwd} ${mynagiosql_db} >/backups/${mynagiosql_db}-$(date +%Y%m%d%H%M%S)
+EOF
+  chmod 755 /scripts/backup.sh
+  echo "0 0 * * * /scripts/backup.sh" | crontab
+}
 
 crear_carcelero() {
   cd ${install_path} &&
@@ -368,10 +406,38 @@ nagios url = https://${ipaddress}/
 nagios user / password = nagiosadmin / $nagiosadmin_passwd
 -- nagiosql --
 nagiosql user / password = nagiosadmin / $nagiosadmin_passwd
-url for nagiosql: http://${ipaddress}/nagiosql
+url for nagiosql: https://${ipaddress}/nagiosql
 -- mariadb --
 database nagiosql = $mynagiosql_user / $mynagiosql_passwd
 mysql_root_passwd=$mysql_root_passwd
+
+
+++ After installation ++
+
+A. Import data:
+1. go to nagiosql https://${ipaddress}/nagiosql/
+2. go to import https://${ipaddress}/nagiosql/admin/import.php
+3. select all elements on objects folder
+4. clic on Import
+5. go to verify https://${ipaddress}/nagiosql/admin/verify.php
+6. clic "Do it" on 4 steps
+
+B. Configure pnp4nagios links
+1. go to service templates: https://${ipaddress}/nagiosql/admin/servicetemplates.php
+2. edit configuration for all service templates
+3. clic on "addon settings"
+4. on Action URL, add this:
+   /pnp4nagios/graph?host=\$HOSTNAME\$&srv=\$SERVICEDESC\$
+5. save config
+6. clic on "Write config file"
+4. go to verify https://${ipaddress}/nagiosql/admin/verify.php
+5. clic "Do it" on 4 steps
+
+C. configure grafana
+1. go to Grafana https://${ipaddress}:3000/
+2. credentials admin/admin
+3. follow this steps: https://support.nagios.com/kb/article/nagios-core-using-grafana-with-pnp4nagios-803.html#Grafana_Config
+
 EOF
   chown ${user_nagios}: ${install_path}/.carcelero &&
   echo "# ========= access information ========= " &&
