@@ -434,7 +434,7 @@ B. Configure pnp4nagios links
 5. clic "Do it" on 4 steps
 
 C. configure grafana
-1. go to Grafana https://${ipaddress}:3000/
+1. go to Grafana http://${ipaddress}:3000/
 2. credentials admin/admin
 3. follow this steps: https://support.nagios.com/kb/article/nagios-core-using-grafana-with-pnp4nagios-803.html#Grafana_Config
 
